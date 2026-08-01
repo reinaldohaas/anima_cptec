@@ -9,11 +9,12 @@ venv/
 ENV/
 .venv
 
-# Operating System
-.DS_Store
-Thumbs.db
-
-# Downloads & Exports
+# Cache & Downloaded Images
+cache_images/
 exports/
 *.mp4
 *.gif
+
+# Operating System
+.DS_Store
+Thumbs.db

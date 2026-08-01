@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anima CPTEC - Animação e Processamento de Imagens de Satélite GOES-16 & GOES-19</title>
-    <meta name="description" content="Aplicação interativa para animar, acumular (SOMA) e gravar vídeos de imagens de satélite do CPTEC/INPE GOES-16 e GOES-19.">
+    <title>Anima CPTEC - Animação e Processamento GOES-19 & GOES-16</title>
+    <meta name="description" content="Aplicação interativa para animar acervos por período, aplicar SOMA (acumulação), filtrar imagens escuras/cortadas e armazenar em cache.">
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,7 +22,7 @@
                 <div class="logo-icon">🛰️</div>
                 <div class="brand-text">
                     <h1>Anima <span>CPTEC</span></h1>
-                    <p>GOES-16 / GOES-19 Satellite Animator & Processor</p>
+                    <p>GOES-19 / GOES-16 Satellite Animator & Processor</p>
                 </div>
             </div>
             
@@ -31,7 +31,7 @@
                     <span class="dot"></span>
                     <span id="connection-status">CPTEC / INPE Conectado</span>
                 </div>
-                <div id="frame-counter-badge" class="badge">0 Quadros Carregados</div>
+                <div id="frame-counter-badge" class="badge">0 Quadros</div>
             </div>
         </header>
 
@@ -39,28 +39,16 @@
         <main class="workspace">
             <!-- Sidebar Controls Panel -->
             <aside class="sidebar card">
+                <!-- Section 1: Data Search & Range -->
                 <div class="section-title">
-                    <span class="icon">⚙️</span> Configurações de Busca
+                    <span class="icon">📅</span> Período & Satélite
                 </div>
 
                 <div class="form-group">
                     <label for="satellite-select">Satélite</label>
                     <select id="satellite-select" class="custom-select">
-                        <option value="goes16" selected>GOES-16 (GOES-East)</option>
-                        <option value="goes19">GOES-19 (Novo Operacional)</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="sector-select">Setor / Região</label>
-                    <select id="sector-select" class="custom-select">
-                        <option value="ams" selected>América do Sul (ams)</option>
-                        <option value="br">Brasil (br)</option>
-                        <option value="se">Sudeste (se)</option>
-                        <option value="s">Sul (s)</option>
-                        <option value="ne">Nordeste (ne)</option>
-                        <option value="n">Norte (n)</option>
-                        <option value="co">Centro-Oeste (co)</option>
+                        <option value="goes19" selected>GOES-19 (Operacional Padrão)</option>
+                        <option value="goes16">GOES-16 (GOES-East)</option>
                     </select>
                 </div>
 
@@ -68,8 +56,8 @@
                     <label for="channel-select">Canal / Produto ABI</label>
                     <select id="channel-select" class="custom-select">
                         <optgroup label="Canais Infravermelho & Térmico">
-                            <option value="ch07_baixa" selected>CH07 (3.90 µm - IV Curto / Focos de Incêndio)</option>
-                            <option value="ch13_baixa">CH13 (10.35 µm - IV Limpo / Nuvens)</option>
+                            <option value="ch13_baixa" selected>CH13 (10.35 µm - IV Limpo / Nuvens Padrão)</option>
+                            <option value="ch07_baixa">CH07 (3.90 µm - IV Curto / Focos de Incêndio)</option>
                             <option value="ch14_baixa">CH14 (11.20 µm - IV Janela)</option>
                             <option value="ch15_baixa">CH15 (12.30 µm - IV Sujo)</option>
                         </optgroup>
@@ -91,27 +79,99 @@
                             <option value="ch12_baixa">CH12 (9.61 µm - Ozônio)</option>
                             <option value="ch16_baixa">CH16 (13.30 µm - CO2 IR)</option>
                         </optgroup>
+                        <optgroup label="Composições RGB">
+                            <option value="airmass">Massa de Ar (Airmass RGB)</option>
+                            <option value="true_color">Cor Verdadeira (True Color RGB)</option>
+                            <option value="nvg">Nevoeiro (Fog RGB)</option>
+                        </optgroup>
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <label for="date-input">Data da Imagem</label>
-                    <input type="date" id="date-input" class="custom-input">
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <label for="date-start">Data Inicial</label>
+                        <input type="date" id="date-start" class="custom-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="date-end">Data Final</label>
+                        <input type="date" id="date-end" class="custom-input">
+                    </div>
+                </div>
+
+                <!-- Quick Range Buttons (1 Dia Default) -->
+                <div class="range-quick-buttons">
+                    <button type="button" class="btn-chip active" data-days="1">1 Dia (Padrão)</button>
+                    <button type="button" class="btn-chip" data-days="3">3 Dias</button>
+                    <button type="button" class="btn-chip" data-days="7">7 Dias (1 Sem.)</button>
                 </div>
 
                 <button id="btn-fetch" class="btn btn-primary full-width">
-                    <span class="btn-icon">🔍</span> Buscar Imagens CPTEC
+                    <span class="btn-icon">🔍</span> Buscar Acervo CPTEC
                 </button>
 
                 <hr class="divider">
 
-                <!-- Processing & SUM Panel -->
+                <!-- Section 2: Skipping & QA Filtering -->
+                <div class="section-title">
+                    <span class="icon">🛡️</span> Intervalo & Protocolo QA
+                </div>
+
+                <div class="form-group">
+                    <label for="step-select">Intervalo / Pular Imagens</label>
+                    <select id="step-select" class="custom-select">
+                        <option value="1" selected>Todas as Imagens (10 min)</option>
+                        <option value="2">1 a cada 2 (20 min)</option>
+                        <option value="3">1 a cada 3 (30 min)</option>
+                        <option value="6">1 a cada 6 (1 hora)</option>
+                        <option value="18">1 a cada 18 (3 horas)</option>
+                        <option value="36">1 a cada 36 (6 horas)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="qa-filter-toggle" checked>
+                        <span class="checkbox-text">Filtrar Imagens Escuras e Cortadas</span>
+                    </label>
+                </div>
+
+                <hr class="divider">
+
+                <!-- Section 3: Local Image Cache Management -->
+                <div class="section-title">
+                    <span class="icon">💾</span> Cache Local de Imagens
+                </div>
+
+                <div class="form-group">
+                    <div class="cache-status-row">
+                        <span>Espaço Utilizado:</span>
+                        <span id="cache-size-badge" class="badge-sm">Carregando...</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="cache-retention-select">Retenção do Cache</label>
+                    <select id="cache-retention-select" class="custom-select">
+                        <option value="30" selected>Apagar arquivos > 30 Dias (Padrão)</option>
+                        <option value="14">Apagar arquivos > 14 Dias</option>
+                        <option value="7">Apagar arquivos > 7 Dias</option>
+                        <option value="0">Limpar Todo o Cache Agora</option>
+                    </select>
+                </div>
+
+                <button id="btn-clear-cache" class="btn btn-secondary full-width">
+                    <span class="btn-icon">🗑️</span> Limpar Cache Local
+                </button>
+
+                <hr class="divider">
+
+                <!-- Section 4: Processing & SUM -->
                 <div class="section-title">
                     <span class="icon">🧪</span> Processamento & SOMA (Accumulation)
                 </div>
 
                 <div class="form-group">
-                    <label for="composition-mode">Modo de Exibição / Composição</label>
+                    <label for="composition-mode">Modo de Composição</label>
                     <select id="composition-mode" class="custom-select">
                         <option value="normal" selected>Normal (Frame por Frame)</option>
                         <option value="sum">🔥 SOMA (Acúmulo de Brilho / Trajetória)</option>
@@ -147,38 +207,39 @@
                     </div>
                     <input type="range" id="slider-contrast" min="50" max="250" value="100" class="custom-range">
                 </div>
-
-                <hr class="divider">
-
-                <!-- Export & Recording -->
-                <div class="section-title">
-                    <span class="icon">🎥</span> Gravação & Gravar Vídeo
-                </div>
-
-                <div class="button-grid">
-                    <button id="btn-record-live" class="btn btn-danger">
-                        <span class="btn-icon">🔴</span> <span id="record-live-text">Gravar Vídeo ao Vivo</span>
-                    </button>
-                    <button id="btn-export-mp4" class="btn btn-secondary">
-                        <span class="btn-icon">🎬</span> Baixar MP4
-                    </button>
-                    <button id="btn-export-gif" class="btn btn-secondary">
-                        <span class="btn-icon">🖼️</span> Baixar GIF
-                    </button>
-                    <button id="btn-snapshot" class="btn btn-secondary">
-                        <span class="btn-icon">📸</span> Salvar Quadro
-                    </button>
-                </div>
             </aside>
 
             <!-- Main Canvas & Animation Section -->
             <section class="viewport-container card">
-                <!-- Floating Canvas Overlay Controls -->
+                <!-- Floating Canvas Overlay Controls Header -->
                 <div class="viewport-toolbar">
                     <div class="metadata-info">
-                        <span id="meta-satellite" class="meta-tag">GOES-16</span>
-                        <span id="meta-product" class="meta-tag">CH07 (3.90µm)</span>
+                        <span id="meta-satellite" class="meta-tag">GOES-19</span>
+                        <span id="meta-product" class="meta-tag">CH13 (10.35µm)</span>
+                        <span id="meta-dir" class="meta-tag tag-dir">➡️ Normal</span>
                         <span id="meta-timestamp" class="meta-time">Carregando dados...</span>
+                    </div>
+
+                    <!-- Top Animation Controls Bar beside Zoom -->
+                    <div class="top-playback-bar">
+                        <button id="btn-reverse" class="play-btn icon-only" title="Inverter Direção (Animação ao Contrário)">🔄</button>
+                        <button id="btn-prev" class="play-btn icon-only" title="Quadro Anterior">⏮</button>
+                        <button id="btn-play" class="play-btn" title="Iniciar / Pausar Animação">
+                            <span id="play-icon">▶</span> <span id="play-text">Tocar</span>
+                        </button>
+                        <button id="btn-next" class="play-btn icon-only" title="Próximo Quadro">⏭</button>
+
+                        <div class="timeline-compact">
+                            <input type="range" id="timeline-scrubber" min="0" max="0" value="0" class="timeline-slider">
+                            <span id="frame-index-display" class="frame-idx">0/0</span>
+                        </div>
+
+                        <div class="speed-compact">
+                            <input type="range" id="fps-slider" min="1" max="30" value="10" class="fps-range">
+                            <span id="fps-display" class="fps-val">10 FPS</span>
+                        </div>
+
+                        <button id="btn-snapshot-frame" class="play-btn btn-save" title="Salvar Imagem Exibida em PNG">📸 Salvar Imagem</button>
                     </div>
                     
                     <div class="viewport-actions">
@@ -193,35 +254,9 @@
                 <div id="canvas-wrapper" class="canvas-wrapper">
                     <div id="loader-overlay" class="loader-overlay">
                         <div class="spinner"></div>
-                        <div id="loader-text" class="loader-text">Buscando imagens do satélite...</div>
+                        <div id="loader-text" class="loader-text">Buscando acervo de satélite...</div>
                     </div>
                     <canvas id="sat-canvas"></canvas>
-                </div>
-
-                <!-- Animation Playback Controls Bar -->
-                <div class="playback-bar">
-                    <div class="control-buttons">
-                        <button id="btn-prev" class="play-btn icon-only" title="Quadro Anterior">⏮</button>
-                        <button id="btn-play" class="play-btn" title="Iniciar / Pausar Animação">
-                            <span id="play-icon">▶</span> <span id="play-text">Tocar</span>
-                        </button>
-                        <button id="btn-next" class="play-btn icon-only" title="Próximo Quadro">⏭</button>
-                    </div>
-
-                    <div class="timeline-container">
-                        <input type="range" id="timeline-scrubber" min="0" max="0" value="0" class="timeline-slider">
-                        <div class="timeline-labels">
-                            <span id="time-start">--:--</span>
-                            <span id="frame-index-display">0 / 0</span>
-                            <span id="time-end">--:--</span>
-                        </div>
-                    </div>
-
-                    <div class="speed-control">
-                        <span class="speed-label">Velocidade:</span>
-                        <input type="range" id="fps-slider" min="1" max="30" value="10" class="fps-range">
-                        <span id="fps-display" class="fps-val">10 FPS</span>
-                    </div>
                 </div>
             </section>
         </main>
