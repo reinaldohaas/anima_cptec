@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anima CPTEC - Animação e Processamento de Imagens de Satélite GOES-16 & GOES-19</title>
+    <meta name="description" content="Aplicação interativa para animar, acumular (SOMA) e gravar vídeos de imagens de satélite do CPTEC/INPE GOES-16 e GOES-19.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Top Navigation Header -->
+        <header class="app-header">
+            <div class="brand">
+                <div class="logo-icon">🛰️</div>
+                <div class="brand-text">
+                    <h1>Anima <span>CPTEC</span></h1>
+                    <p>GOES-16 / GOES-19 Satellite Animator & Processor</p>
+                </div>
+            </div>
+            
+            <div class="header-status">
+                <div class="status-indicator online">
+                    <span class="dot"></span>
+                    <span id="connection-status">CPTEC / INPE Conectado</span>
+                </div>
+                <div id="frame-counter-badge" class="badge">0 Quadros Carregados</div>
+            </div>
+        </header>
+
+        <!-- Main Workspace Layout -->
+        <main class="workspace">
+            <!-- Sidebar Controls Panel -->
+            <aside class="sidebar card">
+                <div class="section-title">
+                    <span class="icon">⚙️</span> Configurações de Busca
+                </div>
+
+                <div class="form-group">
+                    <label for="satellite-select">Satélite</label>
+                    <select id="satellite-select" class="custom-select">
+                        <option value="goes16" selected>GOES-16 (GOES-East)</option>
+                        <option value="goes19">GOES-19 (Novo Operacional)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="sector-select">Setor / Região</label>
+                    <select id="sector-select" class="custom-select">
+                        <option value="ams" selected>América do Sul (ams)</option>
+                        <option value="br">Brasil (br)</option>
+                        <option value="se">Sudeste (se)</option>
+                        <option value="s">Sul (s)</option>
+                        <option value="ne">Nordeste (ne)</option>
+                        <option value="n">Norte (n)</option>
+                        <option value="co">Centro-Oeste (co)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="channel-select">Canal / Produto ABI</label>
+                    <select id="channel-select" class="custom-select">
+                        <optgroup label="Canais Infravermelho & Térmico">
+                            <option value="ch07_baixa" selected>CH07 (3.90 µm - IV Curto / Focos de Incêndio)</option>
+                            <option value="ch13_baixa">CH13 (10.35 µm - IV Limpo / Nuvens)</option>
+                            <option value="ch14_baixa">CH14 (11.20 µm - IV Janela)</option>
+                            <option value="ch15_baixa">CH15 (12.30 µm - IV Sujo)</option>
+                        </optgroup>
+                        <optgroup label="Canais Visível & Vegetação">
+                            <option value="ch02_baixa">CH02 (0.64 µm - Visível Alta Resolução)</option>
+                            <option value="ch01_baixa">CH01 (0.47 µm - Azul / Aerossóis)</option>
+                            <option value="ch03_baixa">CH03 (0.86 µm - Vegetação)</option>
+                        </optgroup>
+                        <optgroup label="Vapor d'Água">
+                            <option value="ch08_baixa">CH08 (6.19 µm - Vapor d'Água Nível Alto)</option>
+                            <option value="ch09_baixa">CH09 (6.95 µm - Vapor d'Água Nível Médio)</option>
+                            <option value="ch10_baixa">CH10 (7.34 µm - Vapor d'Água Nível Baixo)</option>
+                        </optgroup>
+                        <optgroup label="Outros Canais">
+                            <option value="ch04_baixa">CH04 (1.38 µm - Cirrus)</option>
+                            <option value="ch05_baixa">CH05 (1.61 µm - Neve / Gelo)</option>
+                            <option value="ch06_baixa">CH06 (2.26 µm - Partículas de Nuvem)</option>
+                            <option value="ch11_baixa">CH11 (8.50 µm - Fase de Nuvem)</option>
+                            <option value="ch12_baixa">CH12 (9.61 µm - Ozônio)</option>
+                            <option value="ch16_baixa">CH16 (13.30 µm - CO2 IR)</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="date-input">Data da Imagem</label>
+                    <input type="date" id="date-input" class="custom-input">
+                </div>
+
+                <button id="btn-fetch" class="btn btn-primary full-width">
+                    <span class="btn-icon">🔍</span> Buscar Imagens CPTEC
+                </button>
+
+                <hr class="divider">
+
+                <!-- Processing & SUM Panel -->
+                <div class="section-title">
+                    <span class="icon">🧪</span> Processamento & SOMA (Accumulation)
+                </div>
+
+                <div class="form-group">
+                    <label for="composition-mode">Modo de Exibição / Composição</label>
+                    <select id="composition-mode" class="custom-select">
+                        <option value="normal" selected>Normal (Frame por Frame)</option>
+                        <option value="sum">🔥 SOMA (Acúmulo de Brilho / Trajetória)</option>
+                        <option value="max">⚡ Projeção de Intensidade Máxima (MIP)</option>
+                        <option value="avg">☁️ Média Temporal de Nuvens</option>
+                        <option value="diff">🌀 Diferença Temporal (Movimentação)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="colormap-select">Paleta / Falsa Cor</label>
+                    <select id="colormap-select" class="custom-select">
+                        <option value="none" selected>Original / Natural</option>
+                        <option value="thermal">Térmico (Infravermelho / Fogo)</option>
+                        <option value="rainbow">Rainbow (Meteorologia RB)</option>
+                        <option value="grayscale">Escala de Cinza Contrastada</option>
+                        <option value="invert">Invertido (Negativo)</option>
+                    </select>
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span>Brilho</span>
+                        <span id="val-brightness">100%</span>
+                    </div>
+                    <input type="range" id="slider-brightness" min="50" max="250" value="100" class="custom-range">
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span>Contraste</span>
+                        <span id="val-contrast">100%</span>
+                    </div>
+                    <input type="range" id="slider-contrast" min="50" max="250" value="100" class="custom-range">
+                </div>
+
+                <hr class="divider">
+
+                <!-- Export & Recording -->
+                <div class="section-title">
+                    <span class="icon">🎥</span> Gravação & Gravar Vídeo
+                </div>
+
+                <div class="button-grid">
+                    <button id="btn-record-live" class="btn btn-danger">
+                        <span class="btn-icon">🔴</span> <span id="record-live-text">Gravar Vídeo ao Vivo</span>
+                    </button>
+                    <button id="btn-export-mp4" class="btn btn-secondary">
+                        <span class="btn-icon">🎬</span> Baixar MP4
+                    </button>
+                    <button id="btn-export-gif" class="btn btn-secondary">
+                        <span class="btn-icon">🖼️</span> Baixar GIF
+                    </button>
+                    <button id="btn-snapshot" class="btn btn-secondary">
+                        <span class="btn-icon">📸</span> Salvar Quadro
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Main Canvas & Animation Section -->
+            <section class="viewport-container card">
+                <!-- Floating Canvas Overlay Controls -->
+                <div class="viewport-toolbar">
+                    <div class="metadata-info">
+                        <span id="meta-satellite" class="meta-tag">GOES-16</span>
+                        <span id="meta-product" class="meta-tag">CH07 (3.90µm)</span>
+                        <span id="meta-timestamp" class="meta-time">Carregando dados...</span>
+                    </div>
+                    
+                    <div class="viewport-actions">
+                        <button id="btn-zoom-in" class="icon-btn" title="Aumentar Zoom">+</button>
+                        <button id="btn-zoom-out" class="icon-btn" title="Diminuir Zoom">-</button>
+                        <button id="btn-zoom-reset" class="icon-btn" title="Resetar Visão">↺</button>
+                        <button id="btn-fullscreen" class="icon-btn" title="Tela Cheia">⛶</button>
+                    </div>
+                </div>
+
+                <!-- Canvas Viewer -->
+                <div id="canvas-wrapper" class="canvas-wrapper">
+                    <div id="loader-overlay" class="loader-overlay">
+                        <div class="spinner"></div>
+                        <div id="loader-text" class="loader-text">Buscando imagens do satélite...</div>
+                    </div>
+                    <canvas id="sat-canvas"></canvas>
+                </div>
+
+                <!-- Animation Playback Controls Bar -->
+                <div class="playback-bar">
+                    <div class="control-buttons">
+                        <button id="btn-prev" class="play-btn icon-only" title="Quadro Anterior">⏮</button>
+                        <button id="btn-play" class="play-btn" title="Iniciar / Pausar Animação">
+                            <span id="play-icon">▶</span> <span id="play-text">Tocar</span>
+                        </button>
+                        <button id="btn-next" class="play-btn icon-only" title="Próximo Quadro">⏭</button>
+                    </div>
+
+                    <div class="timeline-container">
+                        <input type="range" id="timeline-scrubber" min="0" max="0" value="0" class="timeline-slider">
+                        <div class="timeline-labels">
+                            <span id="time-start">--:--</span>
+                            <span id="frame-index-display">0 / 0</span>
+                            <span id="time-end">--:--</span>
+                        </div>
+                    </div>
+
+                    <div class="speed-control">
+                        <span class="speed-label">Velocidade:</span>
+                        <input type="range" id="fps-slider" min="1" max="30" value="10" class="fps-range">
+                        <span id="fps-display" class="fps-val">10 FPS</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="js/app.js"></script>
+</body>
+</html>
