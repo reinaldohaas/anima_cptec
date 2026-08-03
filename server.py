@@ -10,12 +10,27 @@ from PIL import Image, ImageStat
 
 app = Flask(__name__, static_folder='static')
 
-# CPTEC Base URL
-CPTEC_FORM_URL = 'https://satelite.cptec.inpe.br/acervowebv2/goes16.formulario.logic'
+# CPTEC Endpoints
+CPTEC_URLS = {
+    'goes16_form': 'https://satelite.cptec.inpe.br/acervowebv2/goes16.formulario.logic',
+    'goes_legacy_form': 'https://satelite.cptec.inpe.br/acervowebv2/goes.formulario.logic',
+    'meteosat_form': 'https://satelite.cptec.inpe.br/acervowebv2/meteosat.formulario.logic'
+}
+
+# Satellite Mapping
+SATELLITE_CONFIG = {
+    'goes19': {'form': 'goes16_form', 'indiceFonte': '1', 'name': 'GOES-19'},
+    'goes16': {'form': 'goes16_form', 'indiceFonte': '0', 'name': 'GOES-16'},
+    'goes13': {'form': 'goes_legacy_form', 'indiceFonte': '3', 'name': 'GOES-13 (Histórico)'},
+    'goes12': {'form': 'goes_legacy_form', 'indiceFonte': '2', 'name': 'GOES-12 (Histórico)'},
+    'goes10': {'form': 'goes_legacy_form', 'indiceFonte': '1', 'name': 'GOES-10 (Histórico)'},
+    'goes8':  {'form': 'goes_legacy_form', 'indiceFonte': '0', 'name': 'GOES-8 (Histórico)'},
+    'meteosat9': {'form': 'meteosat_form', 'indiceFonte': '1', 'name': 'Meteosat-9'},
+    'meteosat8': {'form': 'meteosat_form', 'indiceFonte': '0', 'name': 'Meteosat-8'}
+}
 
 HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Referer': CPTEC_FORM_URL
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 }
 
 # Cache Directory Setup
@@ -109,11 +124,12 @@ def static_files(path):
 @app.route('/api/fetch-images', methods=['GET', 'POST'])
 def fetch_images():
     """
-    Fetches image metadata from CPTEC for chosen satellite, channel, and date range.
+    Fetches image metadata from CPTEC for chosen satellite (GOES-19, GOES-16, GOES-13/12/10/8, Meteosat-8/9),
+    channel, and date range.
     """
     data = request.get_json(silent=True) or {}
-    satellite = request.args.get('satellite') or data.get('satellite') or 'goes19'
-    sector = 'ams' # Force comprehensive sector
+    satellite = (request.args.get('satellite') or data.get('satellite') or 'goes19').lower()
+    sector = 'ams'
     channel = request.args.get('channel') or data.get('channel') or 'ch13_baixa'
     
     start_date_str = request.args.get('startDate') or data.get('startDate') or request.args.get('date') or data.get('date')
@@ -142,7 +158,10 @@ def fetch_images():
         date_list.append(curr.strftime('%Y-%m-%d'))
         curr += datetime.timedelta(days=1)
 
-    indice_fonte = '1' if satellite.lower() == 'goes19' else '0'
+    sat_cfg = SATELLITE_CONFIG.get(satellite, SATELLITE_CONFIG['goes19'])
+    form_url = CPTEC_URLS[sat_cfg['form']]
+    indice_fonte = sat_cfg['indiceFonte']
+
     target_folder = f"{sector}_ret_{channel}"
 
     all_filtered = []
@@ -163,7 +182,7 @@ def fetch_images():
         }
 
         try:
-            resp = requests.post(CPTEC_FORM_URL, data=form_data, headers=HEADERS, timeout=12)
+            resp = requests.post(form_url, data=form_data, headers={'User-Agent': HEADERS['User-Agent'], 'Referer': form_url}, timeout=15)
             if resp.status_code != 200:
                 continue
             html = resp.text
@@ -175,7 +194,8 @@ def fetch_images():
                 if filename in seen_filenames:
                     continue
 
-                if target_folder in u or f"/{target_folder}/" in u:
+                # Filter matching folder if applicable (for GOES-16/19 or specified channel)
+                if target_folder in u or f"/{target_folder}/" in u or channel in u or 'goes16' not in sat_cfg['form']:
                     seen_filenames.add(filename)
                     
                     time_match = re.search(r'_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})\.jpg', filename)
@@ -199,7 +219,7 @@ def fetch_images():
                         'date': d_str
                     })
         except Exception as err:
-            print(f"Error fetching date {d_str}:", err)
+            print(f"Error fetching date {d_str} for {satellite}:", err)
             continue
 
     all_filtered.sort(key=lambda x: x['sortKey'])
@@ -208,12 +228,12 @@ def fetch_images():
         'success': True,
         'count': len(all_filtered),
         'satellite': satellite,
+        'satelliteName': sat_cfg['name'],
         'sector': sector,
         'channel': channel,
         'startDate': start_date_str,
         'endDate': end_date_str,
         'totalDays': len(date_list),
-        'targetFolder': target_folder,
         'images': all_filtered
     })
 
@@ -221,7 +241,6 @@ def fetch_images():
 def proxy_image():
     """
     Proxies CPTEC image fetching with persistent disk caching and QA protocol.
-    If image is in cache_images/, serves directly from disk!
     """
     img_url = request.args.get('url')
     if not img_url:
@@ -241,7 +260,7 @@ def proxy_image():
             response.headers['Cache-Control'] = 'public, max-age=2592000' # 30 days
             return response
         except Exception:
-            pass # Fall back to download if read fails
+            pass
 
     # Download from CPTEC
     try:

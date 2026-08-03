@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anima CPTEC - Animação e Processamento GOES-19 & GOES-16</title>
+    <title>Anima CPTEC - Animação & Processamento de Satélites (GOES-R, GOES Legacy, Meteosat)</title>
     <meta name="description" content="Aplicação interativa para animar acervos por período, aplicar SOMA (acumulação), filtrar imagens escuras/cortadas e armazenar em cache.">
 
     <!-- Google Fonts -->
@@ -22,7 +22,7 @@
                 <div class="logo-icon">🛰️</div>
                 <div class="brand-text">
                     <h1>Anima <span>CPTEC</span></h1>
-                    <p>GOES-19 / GOES-16 Satellite Animator & Processor</p>
+                    <p>CPTEC/INPE Multi-Satellite Animator & Processor</p>
                 </div>
             </div>
             
@@ -47,8 +47,20 @@
                 <div class="form-group">
                     <label for="satellite-select">Satélite</label>
                     <select id="satellite-select" class="custom-select">
-                        <option value="goes19" selected>GOES-19 (Operacional Padrão)</option>
-                        <option value="goes16">GOES-16 (GOES-East)</option>
+                        <optgroup label="Série GOES-R (Atuais / Operacionais)">
+                            <option value="goes19" selected>GOES-19 (Operacional Padrão)</option>
+                            <option value="goes16">GOES-16 (GOES-East)</option>
+                        </optgroup>
+                        <optgroup label="Série GOES Legado (Acervo Histórico)">
+                            <option value="goes13">GOES-13 (Histórico 2010-2017)</option>
+                            <option value="goes12">GOES-12 (Histórico 2003-2010)</option>
+                            <option value="goes10">GOES-10 (Histórico 1998-2006)</option>
+                            <option value="goes8">GOES-8 (Histórico 1995-2003)</option>
+                        </optgroup>
+                        <optgroup label="Série Meteosat (EUMETSAT)">
+                            <option value="meteosat9">Meteosat-9</option>
+                            <option value="meteosat8">Meteosat-8</option>
+                        </optgroup>
                     </select>
                 </div>
 
@@ -98,11 +110,12 @@
                     </div>
                 </div>
 
-                <!-- Quick Range Buttons (1 Dia Default) -->
+                <!-- Quick Range Buttons (1 Dia Default & Agora Button) -->
                 <div class="range-quick-buttons">
-                    <button type="button" class="btn-chip active" data-days="1">1 Dia (Padrão)</button>
+                    <button type="button" id="btn-now" class="btn-chip active-now" title="Carregar imagens do dia de hoje (Agora)">⚡ Hoje (Agora)</button>
+                    <button type="button" class="btn-chip active" data-days="1">1 Dia</button>
                     <button type="button" class="btn-chip" data-days="3">3 Dias</button>
-                    <button type="button" class="btn-chip" data-days="7">7 Dias (1 Sem.)</button>
+                    <button type="button" class="btn-chip" data-days="7">7 Dias</button>
                 </div>
 
                 <button id="btn-fetch" class="btn btn-primary full-width">

@@ -239,12 +239,12 @@ body {
 
 .range-quick-buttons {
     display: flex;
-    gap: 8px;
+    gap: 6px;
 }
 
 .btn-chip {
     flex: 1;
-    padding: 6px;
+    padding: 6px 4px;
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid var(--card-border);
     border-radius: var(--radius-sm);
@@ -254,6 +254,7 @@ body {
     font-weight: 500;
     cursor: pointer;
     transition: var(--transition);
+    white-space: nowrap;
 }
 
 .btn-chip:hover {
@@ -266,6 +267,18 @@ body {
     border-color: var(--primary);
     color: #93c5fd;
     font-weight: 600;
+}
+
+.btn-chip.active-now {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.35));
+    border: 1px solid #f59e0b;
+    color: #fef08a;
+    font-weight: 600;
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.3);
+}
+
+.btn-chip.active-now:hover {
+    filter: brightness(1.15);
 }
 
 .divider {

@@ -1,5 +1,5 @@
 /**
- * Anima CPTEC - Satellite GOES-19 & GOES-16 Image Animator & Processor
+ * Anima CPTEC - Satellite GOES-19, GOES-16, GOES Legacy & Meteosat Animator
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const dateStartInput = document.getElementById('date-start');
     const dateEndInput = document.getElementById('date-end');
     const btnFetch = document.getElementById('btn-fetch');
+    const btnNow = document.getElementById('btn-now');
     const stepSelect = document.getElementById('step-select');
     const qaFilterToggle = document.getElementById('qa-filter-toggle');
     const chipButtons = document.querySelectorAll('.btn-chip');
@@ -80,10 +81,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnZoomReset = document.getElementById('btn-zoom-reset');
     const btnFullscreen = document.getElementById('btn-fullscreen');
 
-    // Default Date Range: 1 Day Default (Today)
-    const today = new Date().toISOString().split('T')[0];
-    dateEndInput.value = today;
-    dateStartInput.value = today;
+    // Default Date Range: Today
+    const todayStr = new Date().toISOString().split('T')[0];
+    dateEndInput.value = todayStr;
+    dateStartInput.value = todayStr;
 
     // Initial Cache & Image Fetch
     updateCacheInfo();
@@ -98,8 +99,19 @@ document.addEventListener('DOMContentLoaded', () => {
     btnSnapshotFrame.addEventListener('click', saveDisplayedImage);
     btnClearCache.addEventListener('click', handleClearCache);
 
+    // "Hoje (Agora)" Button Listener -> Sets today's date & fetches immediately
+    if (btnNow) {
+        btnNow.addEventListener('click', () => {
+            const nowIso = new Date().toISOString().split('T')[0];
+            dateStartInput.value = nowIso;
+            dateEndInput.value = nowIso;
+            fetchSatelliteImages();
+        });
+    }
+
     // Quick Range Chip Buttons
     chipButtons.forEach(btn => {
+        if (btn === btnNow) return;
         btn.addEventListener('click', () => {
             chipButtons.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
@@ -222,25 +234,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * Mouse Click-to-Zoom & Center Framing Algorithm
-     * Converts CSS screen coordinates to canvas internal pixel dimensions!
      */
     function handleCanvasClickZoom(e) {
         const rect = canvas.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) return;
 
-        // Scaling factor between rendered CSS size and actual canvas internal resolution
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
 
-        // Click position in internal canvas pixels
         const canvasX = (e.clientX - rect.left) * scaleX;
         const canvasY = (e.clientY - rect.top) * scaleY;
 
-        // Image coordinates corresponding to click point
         const imgX = (canvasX - originX) / scale;
         const imgY = (canvasY - originY) / scale;
 
-        // Target zoom scale step
         let nextScale = scale < 1.8 ? 2.5 : scale * 1.5;
         if (nextScale > 5.5) nextScale = 1.0;
 
@@ -356,15 +363,15 @@ document.addEventListener('DOMContentLoaded', () => {
      * Fetch satellite images metadata from Flask Backend across date range
      */
     async function fetchSatelliteImages() {
-        showLoader('Buscando acervo CPTEC/INPE (GOES-19 CH13)...');
-        pause();
-
         const satellite = satSelect.value;
         const channel = channelSelect.value;
         const startDate = dateStartInput.value;
         const endDate = dateEndInput.value;
 
-        metaSat.textContent = satellite.toUpperCase();
+        showLoader(`Buscando acervo CPTEC/INPE (${satSelect.options[satSelect.selectedIndex].text.split('(')[0].trim()})...`);
+        pause();
+
+        metaSat.textContent = satSelect.options[satSelect.selectedIndex].text.split('(')[0].trim();
         metaProd.textContent = channelSelect.options[channelSelect.selectedIndex].text.split('(')[0].trim();
 
         try {
@@ -377,7 +384,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await resp.json();
 
             if (!data.success || !data.images || data.images.length === 0) {
-                showLoader(`Nenhuma imagem encontrada para o período selecionado.`, false);
+                showLoader(`Nenhuma imagem encontrada para o satélite/período selecionado.`, false);
                 frameCounterBadge.textContent = '0 Quadros';
                 rawImagesList = [];
                 activeImagesList = [];
@@ -544,7 +551,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const currentItem = activeImagesList[currentIndex];
         const timestampStr = (currentItem.sortKey || 'frame').replace(/[^0-9]/g, '');
-        const filename = `goes19_${channelSelect.value}_${timestampStr}.png`;
+        const filename = `${satSelect.value}_${channelSelect.value}_${timestampStr}.png`;
 
         const dataUrl = canvas.toDataURL('image/png');
         const a = document.createElement('a');
