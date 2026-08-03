@@ -143,7 +143,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event Listeners
     satSelect.addEventListener('change', () => {
         updateChannelOptions();
-        // Adjust sample default date if selecting legacy satellite
         adjustDateForSatellite();
         fetchSatelliteImages();
     });
@@ -219,20 +218,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Adjusts default dates if selecting an inactive historical satellite
+     * Adjusts default dates for satellites (e.g. GOES-16 active up to 07/04/2025)
      */
     function adjustDateForSatellite(forceToday = false) {
         const sat = satSelect.value;
         const nowIso = new Date().toISOString().split('T')[0];
 
         if (forceToday) {
-            dateStartInput.value = nowIso;
-            dateEndInput.value = nowIso;
+            if (sat === 'goes16') {
+                alert('O satélite GOES-16 operou como principal até 07/04/2025, sendo substituído pelo GOES-19. Para datas atuais, utilize o GOES-19.');
+                dateStartInput.value = '2025-04-07';
+                dateEndInput.value = '2025-04-07';
+            } else {
+                dateStartInput.value = nowIso;
+                dateEndInput.value = nowIso;
+            }
             return;
         }
 
-        // Set realistic operational dates for historical satellites
-        if (sat === 'goes13') {
+        if (sat === 'goes16') {
+            dateStartInput.value = '2025-04-07';
+            dateEndInput.value = '2025-04-07';
+        } else if (sat === 'goes13') {
             dateStartInput.value = '2015-05-10';
             dateEndInput.value = '2015-05-10';
         } else if (sat === 'goes12') {
@@ -292,7 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnZoomReset.addEventListener('click', resetZoom);
     btnFullscreen.addEventListener('click', toggleFullscreen);
 
-    // Mouse Click / Drag / Touch Events for Click-to-Zoom & Framing
+    // Precise Mouse Click / Drag / Touch Events for Click-to-Zoom & Framing
     canvas.addEventListener('mousedown', (e) => {
         isDragging = true;
         dragMoved = false;
@@ -494,6 +501,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const channel = channelSelect.value;
         const startDate = dateStartInput.value;
         const endDate = dateEndInput.value;
+
+        // Warn if querying GOES-16 after April 2025
+        if (satellite === 'goes16' && (startDate > '2025-04-07' || endDate > '2025-04-07')) {
+            alert('Aviso: O satélite GOES-16 encerrou suas operações principais em 07/04/2025. Para datas após essa data, utilize o GOES-19.');
+        }
 
         const satName = satSelect.options[satSelect.selectedIndex].text.split('(')[0].trim();
         showLoader(`Buscando acervo CPTEC/INPE (${satName})...`);
@@ -704,6 +716,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * Main Render Function
+     * Locks canvas dimensions to first image reference resolution to prevent flickering/jumping during animation!
      */
     function renderCurrentFrame() {
         if (!activeImagesList || activeImagesList.length === 0) return;
@@ -716,9 +729,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const img = loadedImagesMap.get(currentItem.proxyUrl);
         if (!img) return;
 
-        if (canvas.width !== img.naturalWidth || canvas.height !== img.naturalHeight) {
-            canvas.width = img.naturalWidth || 800;
-            canvas.height = img.naturalHeight || 600;
+        // Reference canvas dimensions from the first valid image frame
+        const firstImg = loadedImagesMap.get(activeImagesList[0].proxyUrl);
+        const refW = (firstImg && firstImg.naturalWidth) ? firstImg.naturalWidth : (img.naturalWidth || 800);
+        const refH = (firstImg && firstImg.naturalHeight) ? firstImg.naturalHeight : (img.naturalHeight || 600);
+
+        if (canvas.width !== refW || canvas.height !== refH) {
+            canvas.width = refW;
+            canvas.height = refH;
         }
 
         const mode = compModeSelect.value;
@@ -738,7 +756,8 @@ document.addEventListener('DOMContentLoaded', () => {
             renderMaxProjection(currentIndex, bVal, cVal, colormap);
         } else {
             applyCanvasFilters(ctx, bVal, cVal, colormap);
-            ctx.drawImage(img, 0, 0);
+            // Draw image locked to canvas reference dimensions
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         }
 
         ctx.restore();
@@ -758,7 +777,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const firstImg = loadedImagesMap.get(activeImagesList[0].proxyUrl);
         if (!firstImg) return;
-        sCtx.drawImage(firstImg, 0, 0);
+        sCtx.drawImage(firstImg, 0, 0, width, height);
 
         sCtx.globalCompositeOperation = 'lighter';
         sCtx.globalAlpha = 0.5;
@@ -766,7 +785,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 1; i <= upToIndex; i++) {
             const frameImg = loadedImagesMap.get(activeImagesList[i].proxyUrl);
             if (frameImg) {
-                sCtx.drawImage(frameImg, 0, 0);
+                sCtx.drawImage(frameImg, 0, 0, width, height);
             }
         }
 
@@ -791,7 +810,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i <= upToIndex; i++) {
             const frameImg = loadedImagesMap.get(activeImagesList[i].proxyUrl);
             if (frameImg) {
-                mCtx.drawImage(frameImg, 0, 0);
+                mCtx.drawImage(frameImg, 0, 0, width, height);
             }
         }
 
