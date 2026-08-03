@@ -19,14 +19,14 @@ CPTEC_URLS = {
 
 # Satellite Mapping
 SATELLITE_CONFIG = {
-    'goes19': {'form': 'goes16_form', 'indiceFonte': '1', 'name': 'GOES-19'},
-    'goes16': {'form': 'goes16_form', 'indiceFonte': '0', 'name': 'GOES-16'},
-    'goes13': {'form': 'goes_legacy_form', 'indiceFonte': '3', 'name': 'GOES-13 (Histórico)'},
-    'goes12': {'form': 'goes_legacy_form', 'indiceFonte': '2', 'name': 'GOES-12 (Histórico)'},
-    'goes10': {'form': 'goes_legacy_form', 'indiceFonte': '1', 'name': 'GOES-10 (Histórico)'},
-    'goes8':  {'form': 'goes_legacy_form', 'indiceFonte': '0', 'name': 'GOES-8 (Histórico)'},
-    'meteosat9': {'form': 'meteosat_form', 'indiceFonte': '1', 'name': 'Meteosat-9'},
-    'meteosat8': {'form': 'meteosat_form', 'indiceFonte': '0', 'name': 'Meteosat-8'}
+    'goes19': {'form': 'goes16_form', 'indiceFonte': '1', 'name': 'GOES-19', 'defaultChannel': 'ch13_baixa'},
+    'goes16': {'form': 'goes16_form', 'indiceFonte': '0', 'name': 'GOES-16', 'defaultChannel': 'ch13_baixa'},
+    'goes13': {'form': 'goes_legacy_form', 'indiceFonte': '3', 'name': 'GOES-13 (Histórico)', 'defaultChannel': 'infra'},
+    'goes12': {'form': 'goes_legacy_form', 'indiceFonte': '2', 'name': 'GOES-12 (Histórico)', 'defaultChannel': 'infra'},
+    'goes10': {'form': 'goes_legacy_form', 'indiceFonte': '1', 'name': 'GOES-10 (Histórico)', 'defaultChannel': 'infra'},
+    'goes8':  {'form': 'goes_legacy_form', 'indiceFonte': '0', 'name': 'GOES-8 (Histórico)', 'defaultChannel': 'infra'},
+    'meteosat9': {'form': 'meteosat_form', 'indiceFonte': '1', 'name': 'Meteosat-9', 'defaultChannel': 'ch09'},
+    'meteosat8': {'form': 'meteosat_form', 'indiceFonte': '0', 'name': 'Meteosat-8', 'defaultChannel': 'ch09'}
 }
 
 HEADERS = {
@@ -130,7 +130,9 @@ def fetch_images():
     data = request.get_json(silent=True) or {}
     satellite = (request.args.get('satellite') or data.get('satellite') or 'goes19').lower()
     sector = 'ams'
-    channel = request.args.get('channel') or data.get('channel') or 'ch13_baixa'
+    sat_cfg = SATELLITE_CONFIG.get(satellite, SATELLITE_CONFIG['goes19'])
+    
+    channel = request.args.get('channel') or data.get('channel') or sat_cfg['defaultChannel']
     
     start_date_str = request.args.get('startDate') or data.get('startDate') or request.args.get('date') or data.get('date')
     end_date_str = request.args.get('endDate') or data.get('endDate') or start_date_str
@@ -158,11 +160,11 @@ def fetch_images():
         date_list.append(curr.strftime('%Y-%m-%d'))
         curr += datetime.timedelta(days=1)
 
-    sat_cfg = SATELLITE_CONFIG.get(satellite, SATELLITE_CONFIG['goes19'])
     form_url = CPTEC_URLS[sat_cfg['form']]
     indice_fonte = sat_cfg['indiceFonte']
 
-    target_folder = f"{sector}_ret_{channel}"
+    # Target folder or pattern matching
+    target_folder = f"{sector}_ret_{channel}" if 'goes16' in sat_cfg['form'] else channel
 
     all_filtered = []
     seen_filenames = set()
@@ -194,8 +196,15 @@ def fetch_images():
                 if filename in seen_filenames:
                     continue
 
-                # Filter matching folder if applicable (for GOES-16/19 or specified channel)
-                if target_folder in u or f"/{target_folder}/" in u or channel in u or 'goes16' not in sat_cfg['form']:
+                # Flexible matching for specific channels per satellite family
+                match_valid = False
+                if 'goes16' in sat_cfg['form']:
+                    match_valid = (target_folder in u or f"/{target_folder}/" in u)
+                else:
+                    # Legacy GOES or Meteosat
+                    match_valid = (f"/{channel}/" in u or f"_{channel}_" in u or f"/{sector}_{channel}_" in u or f"_{channel}." in u)
+
+                if match_valid:
                     seen_filenames.add(filename)
                     
                     time_match = re.search(r'_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})\.jpg', filename)
@@ -257,7 +266,7 @@ def proxy_image():
             response = Response(content, mimetype='image/jpeg')
             response.headers['Access-Control-Allow-Origin'] = '*'
             response.headers['X-Cache-Status'] = 'HIT'
-            response.headers['Cache-Control'] = 'public, max-age=2592000' # 30 days
+            response.headers['Cache-Control'] = 'public, max-age=2592000'
             return response
         except Exception:
             pass

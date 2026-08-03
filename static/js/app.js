@@ -3,10 +3,57 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Channel Configurations per Satellite Family
+    const SATELLITE_CHANNELS = {
+        goes_r: [
+            { value: 'ch13_baixa', label: 'CH13 (10.35 µm - IV Limpo / Nuvens Padrão)', isDefault: true, group: 'Infravermelho & Térmico' },
+            { value: 'ch07_baixa', label: 'CH07 (3.90 µm - IV Curto / Focos de Incêndio)', group: 'Infravermelho & Térmico' },
+            { value: 'ch14_baixa', label: 'CH14 (11.20 µm - IV Janela)', group: 'Infravermelho & Térmico' },
+            { value: 'ch15_baixa', label: 'CH15 (12.30 µm - IV Sujo)', group: 'Infravermelho & Térmico' },
+            { value: 'ch02_baixa', label: 'CH02 (0.64 µm - Visível Alta Resolução)', group: 'Visível & Vegetação' },
+            { value: 'ch01_baixa', label: 'CH01 (0.47 µm - Visível Azul / Aerossóis)', group: 'Visível & Vegetação' },
+            { value: 'ch03_baixa', label: 'CH03 (0.86 µm - Vegetação)', group: 'Visível & Vegetação' },
+            { value: 'ch08_baixa', label: 'CH08 (6.19 µm - Vapor d\'Água Nível Alto)', group: 'Vapor d\'Água' },
+            { value: 'ch09_baixa', label: 'CH09 (6.95 µm - Vapor d\'Água Nível Médio)', group: 'Vapor d\'Água' },
+            { value: 'ch10_baixa', label: 'CH10 (7.34 µm - Vapor d\'Água Nível Baixo)', group: 'Vapor d\'Água' },
+            { value: 'ch04_baixa', label: 'CH04 (1.38 µm - Cirrus)', group: 'Outros Canais' },
+            { value: 'ch05_baixa', label: 'CH05 (1.61 µm - Neve / Gelo)', group: 'Outros Canais' },
+            { value: 'ch06_baixa', label: 'CH06 (2.26 µm - Partículas de Nuvem)', group: 'Outros Canais' },
+            { value: 'ch11_baixa', label: 'CH11 (8.50 µm - Fase de Nuvem)', group: 'Outros Canais' },
+            { value: 'ch12_baixa', label: 'CH12 (9.61 µm - Ozônio)', group: 'Outros Canais' },
+            { value: 'ch16_baixa', label: 'CH16 (13.30 µm - CO2 IR)', group: 'Outros Canais' },
+            { value: 'airmass', label: 'Massa de Ar (Airmass RGB)', group: 'Composições RGB' },
+            { value: 'true_color', label: 'Cor Verdadeira (True Color RGB)', group: 'Composições RGB' },
+            { value: 'nvg', label: 'Nevoeiro (Fog RGB)', group: 'Composições RGB' }
+        ],
+        goes_legacy: [
+            { value: 'infra', label: 'Infravermelho (Canal 4 ~10.7 µm - Padrão)', isDefault: true, group: 'Canais Padrão' },
+            { value: 'vis', label: 'Visível (Canal 1 ~0.65 µm)', group: 'Canais Padrão' },
+            { value: 'vapor', label: 'Vapor d\'Água (Canal 3 ~6.5 µm)', group: 'Canais Padrão' },
+            { value: 'realce', label: 'Infravermelho Realçado', group: 'Composições & Realces' },
+            { value: 'col', label: 'Cor Falsa RGB', group: 'Composições & Realces' }
+        ],
+        meteosat: [
+            { value: 'ch09', label: 'CH09 (10.8 µm - Infravermelho IR10.8 Padrão)', isDefault: true, group: 'Infravermelho' },
+            { value: 'ch04', label: 'CH04 (3.9 µm - Infravermelho IR3.9)', group: 'Infravermelho' },
+            { value: 'ch07', label: 'CH07 (8.7 µm - Infravermelho IR8.7)', group: 'Infravermelho' },
+            { value: 'ch08', label: 'CH08 (9.7 µm - Ozônio IR9.7)', group: 'Infravermelho' },
+            { value: 'ch10', label: 'CH10 (12.0 µm - Infravermelho IR12.0)', group: 'Infravermelho' },
+            { value: 'ch11', label: 'CH11 (13.4 µm - CO2 IR13.4)', group: 'Infravermelho' },
+            { value: 'ch05', label: 'CH05 (6.2 µm - Vapor d\'Água WV6.2)', group: 'Vapor d\'Água' },
+            { value: 'ch06', label: 'CH06 (7.3 µm - Vapor d\'Água WV7.3)', group: 'Vapor d\'Água' },
+            { value: 'ch01', label: 'CH01 (0.6 µm - Visível VIS0.6)', group: 'Visível & NIR' },
+            { value: 'ch02', label: 'CH02 (0.8 µm - Visível VIS0.8)', group: 'Visível & NIR' },
+            { value: 'ch03', label: 'CH03 (1.6 µm - Infravermelho Próximo NIR1.6)', group: 'Visível & NIR' },
+            { value: 'color', label: 'Cor Falsa (Color)', group: 'Composições' },
+            { value: 'realce', label: 'Infravermelho Realçado', group: 'Composições' }
+        ]
+    };
+
     // State Variables
     let rawImagesList = [];
     let activeImagesList = [];
-    let loadedImagesMap = new Map(); // url -> HTMLImageElement
+    let loadedImagesMap = new Map();
     let currentIndex = 0;
     let isPlaying = false;
     let isReverse = false;
@@ -55,7 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const valBrightness = document.getElementById('val-brightness');
     const valContrast = document.getElementById('val-contrast');
 
-    // Playback Controls (Top Toolbar Bar)
+    // Playback Controls
     const btnReverse = document.getElementById('btn-reverse');
     const btnPlay = document.getElementById('btn-play');
     const playIcon = document.getElementById('play-icon');
@@ -86,11 +133,22 @@ document.addEventListener('DOMContentLoaded', () => {
     dateEndInput.value = todayStr;
     dateStartInput.value = todayStr;
 
+    // Initialize Channels for selected Satellite
+    updateChannelOptions();
+
     // Initial Cache & Image Fetch
     updateCacheInfo();
     fetchSatelliteImages();
 
     // Event Listeners
+    satSelect.addEventListener('change', () => {
+        updateChannelOptions();
+        // Adjust sample default date if selecting legacy satellite
+        adjustDateForSatellite();
+        fetchSatelliteImages();
+    });
+
+    channelSelect.addEventListener('change', fetchSatelliteImages);
     btnFetch.addEventListener('click', fetchSatelliteImages);
     btnPlay.addEventListener('click', togglePlay);
     btnReverse.addEventListener('click', toggleReverse);
@@ -99,12 +157,10 @@ document.addEventListener('DOMContentLoaded', () => {
     btnSnapshotFrame.addEventListener('click', saveDisplayedImage);
     btnClearCache.addEventListener('click', handleClearCache);
 
-    // "Hoje (Agora)" Button Listener -> Sets today's date & fetches immediately
+    // "Hoje (Agora)" Button Listener
     if (btnNow) {
         btnNow.addEventListener('click', () => {
-            const nowIso = new Date().toISOString().split('T')[0];
-            dateStartInput.value = nowIso;
-            dateEndInput.value = nowIso;
+            adjustDateForSatellite(true);
             fetchSatelliteImages();
         });
     }
@@ -125,6 +181,77 @@ document.addEventListener('DOMContentLoaded', () => {
             fetchSatelliteImages();
         });
     });
+
+    /**
+     * Dynamically updates Channel Dropdown depending on the selected Satellite Family
+     * Automatically sets Infrared channel as Default!
+     */
+    function updateChannelOptions() {
+        const sat = satSelect.value;
+        let familyKey = 'goes_r';
+
+        if (['goes13', 'goes12', 'goes10', 'goes8'].includes(sat)) {
+            familyKey = 'goes_legacy';
+        } else if (['meteosat9', 'meteosat8'].includes(sat)) {
+            familyKey = 'meteosat';
+        }
+
+        const channelList = SATELLITE_CHANNELS[familyKey] || SATELLITE_CHANNELS['goes_r'];
+
+        channelSelect.innerHTML = '';
+        const groupsMap = new Map();
+
+        channelList.forEach(item => {
+            if (!groupsMap.has(item.group)) {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = item.group;
+                groupsMap.set(item.group, optgroup);
+                channelSelect.appendChild(optgroup);
+            }
+            const option = document.createElement('option');
+            option.value = item.value;
+            option.textContent = item.label;
+            if (item.isDefault) {
+                option.selected = true;
+            }
+            groupsMap.get(item.group).appendChild(option);
+        });
+    }
+
+    /**
+     * Adjusts default dates if selecting an inactive historical satellite
+     */
+    function adjustDateForSatellite(forceToday = false) {
+        const sat = satSelect.value;
+        const nowIso = new Date().toISOString().split('T')[0];
+
+        if (forceToday) {
+            dateStartInput.value = nowIso;
+            dateEndInput.value = nowIso;
+            return;
+        }
+
+        // Set realistic operational dates for historical satellites
+        if (sat === 'goes13') {
+            dateStartInput.value = '2015-05-10';
+            dateEndInput.value = '2015-05-10';
+        } else if (sat === 'goes12') {
+            dateStartInput.value = '2008-05-10';
+            dateEndInput.value = '2008-05-10';
+        } else if (sat === 'goes10') {
+            dateStartInput.value = '2004-05-10';
+            dateEndInput.value = '2004-05-10';
+        } else if (sat === 'goes8') {
+            dateStartInput.value = '2000-05-10';
+            dateEndInput.value = '2000-05-10';
+        } else if (sat === 'meteosat9' || sat === 'meteosat8') {
+            dateStartInput.value = '2015-05-10';
+            dateEndInput.value = '2015-05-10';
+        } else {
+            dateStartInput.value = nowIso;
+            dateEndInput.value = nowIso;
+        }
+    }
 
     // Step Skipping & QA Filter Toggle Listeners
     stepSelect.addEventListener('change', () => {
@@ -165,7 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnZoomReset.addEventListener('click', resetZoom);
     btnFullscreen.addEventListener('click', toggleFullscreen);
 
-    // Precise Mouse Click / Drag / Touch Events for Click-to-Zoom & Framing
+    // Mouse Click / Drag / Touch Events for Click-to-Zoom & Framing
     canvas.addEventListener('mousedown', (e) => {
         isDragging = true;
         dragMoved = false;
@@ -368,11 +495,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const startDate = dateStartInput.value;
         const endDate = dateEndInput.value;
 
-        showLoader(`Buscando acervo CPTEC/INPE (${satSelect.options[satSelect.selectedIndex].text.split('(')[0].trim()})...`);
+        const satName = satSelect.options[satSelect.selectedIndex].text.split('(')[0].trim();
+        showLoader(`Buscando acervo CPTEC/INPE (${satName})...`);
         pause();
 
-        metaSat.textContent = satSelect.options[satSelect.selectedIndex].text.split('(')[0].trim();
-        metaProd.textContent = channelSelect.options[channelSelect.selectedIndex].text.split('(')[0].trim();
+        metaSat.textContent = satName;
+        metaProd.textContent = channelSelect.options[channelSelect.selectedIndex] ? channelSelect.options[channelSelect.selectedIndex].text.split('(')[0].trim() : channel;
 
         try {
             const resp = await fetch('/api/fetch-images', {
