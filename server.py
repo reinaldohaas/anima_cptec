@@ -18,13 +18,13 @@ CPTEC_URLS = {
 }
 
 SATELLITE_CONFIG = {
-    'goes19': {'form': 'goes16_form', 'indiceFonte': '1', 'name': 'GOES-19', 'defaultChannel': 'ch13_baixa', 'repoSat': 'goes19', 'prefixes': ['S1161213', 'S116', 'S119', 'S118']},
-    'goes16': {'form': 'goes16_form', 'indiceFonte': '0', 'name': 'GOES-16', 'defaultChannel': 'ch13_baixa', 'repoSat': 'goes16', 'prefixes': ['S116', 'S118', 'S119']},
+    'goes19': {'form': 'goes16_form', 'indiceFonte': '1', 'name': 'GOES-19', 'defaultChannel': 'ch13_baixa', 'repoSat': 'goes19', 'prefixes': ['S11161213']},
+    'goes16': {'form': 'goes16_form', 'indiceFonte': '0', 'name': 'GOES-16', 'defaultChannel': 'ch13_baixa', 'repoSat': 'goes16', 'prefixes': ['S11161213']},
     'goes13': {'form': 'goes_legacy_form', 'indiceFonte': '3', 'name': 'GOES-13 (Histórico)', 'defaultChannel': 'infra', 'repoSat': 'goes13', 'prefixes': ['S11232949', 'S1123', 'S112']},
     'goes12': {'form': 'goes_legacy_form', 'indiceFonte': '2', 'name': 'GOES-12 (Histórico)', 'defaultChannel': 'infra', 'repoSat': 'goes12', 'prefixes': ['S11219747', 'S1121', 'S112']},
     'goes10': {'form': 'goes_legacy_form', 'indiceFonte': '1', 'name': 'GOES-10 (Histórico)', 'defaultChannel': 'infra', 'repoSat': 'goes10', 'prefixes': ['S1120', 'S112']},
     'goes8':  {'form': 'goes_legacy_form', 'indiceFonte': '0', 'name': 'GOES-8 (Histórico)', 'defaultChannel': 'infra', 'repoSat': 'goes8', 'prefixes': ['S11201750', 'S1120', 'S112']},
-    'meteosat9': {'form': 'meteosat_form', 'indiceFonte': '1', 'name': 'Meteosat-9', 'defaultChannel': 'ch09', 'repoSat': 'msg', 'prefixes': ['S10117900', 'S10117901', 'S101']},
+    'meteosat9': {'form': 'meteosat_form', 'indiceFonte': '1', 'name': 'Meteosat-9', 'defaultChannel': 'ch09', 'repoSat': 'msg', 'prefixes': ['S10117900', 'S10117901']},
     'meteosat8': {'form': 'meteosat_form', 'indiceFonte': '0', 'name': 'Meteosat-8', 'defaultChannel': 'ch09', 'repoSat': 'msg', 'prefixes': ['S101']}
 }
 
@@ -99,6 +99,22 @@ def get_channel_folder_name(sat, channel):
         return channel
     return channel
 
+def get_satellite_prefixes(satellite, channel):
+    """
+    Retorna os prefixos corretos para o satélite e canal selecionados.
+    Para GOES-19/16, extrai o número do canal (ex: ch08 -> S11161208).
+    """
+    ch_match = re.search(r'ch(\d{2})', channel.lower())
+    if ch_match:
+        ch_num = ch_match.group(1)
+        if satellite == 'goes19':
+            return [f"S111612{ch_num}", f"S11612{ch_num}", f"S1116{ch_num}"]
+        elif satellite == 'goes16':
+            return [f"S111612{ch_num}", f"S116{ch_num}", f"S118{ch_num}"]
+
+    sat_cfg = SATELLITE_CONFIG.get(satellite, SATELLITE_CONFIG['goes19'])
+    return sat_cfg.get('prefixes', ['S11161213', 'S11219747'])
+
 def probe_single_url(url):
     try:
         r = requests.head(url, headers=HEADERS, timeout=3)
@@ -110,7 +126,7 @@ def probe_single_url(url):
 
 def fetch_probe_repo_images(satellite, channel, date_str):
     """
-    High-speed multi-threaded timestamp prober for static CPTEC archive.
+    Varredura paralela de alta velocidade nos arquivos estáticos do CPTEC.
     """
     dt = datetime.datetime.strptime(date_str, '%Y-%m-%d')
     yyyy = dt.strftime('%Y')
@@ -120,7 +136,7 @@ def fetch_probe_repo_images(satellite, channel, date_str):
     sat_cfg = SATELLITE_CONFIG.get(satellite, SATELLITE_CONFIG['goes19'])
     repo_sat = sat_cfg['repoSat']
     folder = get_channel_folder_name(satellite, channel)
-    prefixes = sat_cfg.get('prefixes', ['S11219747'])
+    prefixes = get_satellite_prefixes(satellite, channel)
 
     if satellite in ['meteosat9', 'meteosat8']:
         base_url = f"https://satelite.cptec.inpe.br/repositoriomsg/msg/met_web/{folder}/{yyyy}/{mm}/"
@@ -128,7 +144,7 @@ def fetch_probe_repo_images(satellite, channel, date_str):
         base_url = f"https://satelite.cptec.inpe.br/repositoriogoes/{repo_sat}/{repo_sat}_web/{folder}/{yyyy}/{mm}/"
 
     urls_to_test = []
-    # Standard satellite observation intervals
+    # Intervalos de observação (00, 10, 20, 30, 40, 50 para GOES-R; 09, 39 para GOES legado)
     minute_slots = [0, 9, 10, 15, 20, 30, 39, 40, 45, 50]
     
     for prefix in prefixes:
@@ -138,7 +154,7 @@ def fetch_probe_repo_images(satellite, channel, date_str):
                 urls_to_test.append(f"{base_url}{fname}")
 
     valid_urls = []
-    with ThreadPoolExecutor(max_workers=25) as executor:
+    with ThreadPoolExecutor(max_workers=30) as executor:
         results = executor.map(probe_single_url, urls_to_test)
         for r in results:
             if r:
@@ -188,8 +204,8 @@ def fetch_images():
         date_list.append(curr.strftime('%Y-%m-%d'))
         curr += datetime.timedelta(days=1)
 
-    form_url = CPTEC_URLS.get(sat_cfg['form'], CPTEC_URLS['goes16_form'])
-    indice_fonte = sat_cfg['indiceFonte']
+    form_url = CPTEC_URLS.get(sat_cfg.get('form'), CPTEC_URLS['goes16_form'])
+    indice_fonte = sat_cfg.get('indiceFonte', '1')
     target_folder = get_channel_folder_name(satellite, channel)
 
     all_filtered = []
@@ -198,7 +214,7 @@ def fetch_images():
     for d_str in date_list:
         date_urls = []
 
-        # Step 1: Form Query
+        # 1. Consulta ao formulário CPTEC
         form_data = {
             'dtConsulta': d_str,
             'idLogs': '', 'idSubproduto': '', 'tipoImg': '', 'comboBusca': '',
@@ -206,11 +222,11 @@ def fetch_images():
             'indiceProjecao': '0', 'indiceSetor': '0'
         }
         try:
-            resp = requests.post(form_url, data=form_data, headers={'User-Agent': HEADERS['User-Agent'], 'Referer': form_url}, timeout=10)
+            resp = requests.post(form_url, data=form_data, headers={'User-Agent': HEADERS['User-Agent'], 'Referer': form_url}, timeout=8)
             if resp.status_code == 200:
                 raw_urls = re.findall(r'https?://[^\'"\s>]+\.jpg', resp.text)
                 for u in raw_urls:
-                    if 'goes16' in sat_cfg['form']:
+                    if 'goes16' in sat_cfg.get('form', ''):
                         if target_folder in u or f"/{target_folder}/" in u:
                             date_urls.append(u)
                     else:
@@ -219,7 +235,7 @@ def fetch_images():
         except Exception:
             pass
 
-        # Step 2: High-speed timestamp prober fallback for static repository
+        # 2. Varredura direta paralela caso o formulário não retorne
         if not date_urls:
             date_urls = fetch_probe_repo_images(satellite, channel, d_str)
 
@@ -326,5 +342,5 @@ def clear_cache():
     return jsonify({'success': True, 'deletedCount': deleted, 'freedMB': freed_mb})
 
 if __name__ == '__main__':
-    print("Starting Anima CPTEC Server (Direto no Acervo Probed) on http://localhost:5000")
+    print("Starting Anima CPTEC Server on http://localhost:5000")
     app.run(host='0.0.0.0', port=5000, debug=True)
